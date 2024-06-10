@@ -21,5 +21,5 @@ func setupListRoutes(a *fiber.App) {
 }
 
 func setupTaskRoutes(a *fiber.App) {
-	a.Get("/tasks", handlers.GetTasksByListIdHandler) // Requires list_id as a query variable
+	a.Get("/tasks", handlers.GetTasksByIdHandler) // Requires list_id or user_id as a query variable
 }
