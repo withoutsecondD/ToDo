@@ -6,9 +6,14 @@ import (
 )
 
 func SetupAllRoutes(a *fiber.App) {
+	setupLoginRoute(a)
 	setupUserRoutes(a)
 	setupListRoutes(a)
 	setupTaskRoutes(a)
+}
+
+func setupLoginRoute(a *fiber.App) {
+	a.Post("/login", handlers.LoginHandler)
 }
 
 func setupUserRoutes(a *fiber.App) {

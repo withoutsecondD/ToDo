@@ -4,6 +4,7 @@ import (
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/cors"
 	"github.com/withoutsecondd/ToDo/database"
+	"github.com/withoutsecondd/ToDo/internal/utils"
 	"github.com/withoutsecondd/ToDo/routes"
 	"log"
 )
@@ -22,6 +23,10 @@ func main() {
 	}
 
 	routes.SetupAllRoutes(app)
+	err = utils.GenerateJwtKey()
+	if err != nil {
+		return
+	}
 
 	app.Listen(":8080")
 }

@@ -4,7 +4,7 @@ import (
 	"errors"
 	"github.com/gofiber/fiber/v2"
 	"github.com/withoutsecondd/ToDo/database"
-	"github.com/withoutsecondd/ToDo/internal/fmtResponse"
+	"github.com/withoutsecondd/ToDo/internal/utils"
 	"strconv"
 )
 
@@ -24,33 +24,33 @@ func GetTasksByIdHandler(c *fiber.Ctx) error {
 		return getTasksByListIdHandler(c)
 	}
 
-	return fmtResponse.FormatErrorResponse(c, fiber.StatusBadRequest, errors.New("no user_id or list_id parameter is specified"))
+	return utils.FormatErrorResponse(c, fiber.StatusBadRequest, errors.New("no user_id or list_id parameter is specified"))
 }
 
 func getTasksByUserIdHandler(c *fiber.Ctx) error {
 	id, err := strconv.Atoi(c.GetRespHeader("id"))
 	if err != nil {
-		return fmtResponse.FormatErrorResponse(c, fiber.StatusBadRequest, err)
+		return utils.FormatErrorResponse(c, fiber.StatusBadRequest, err)
 	}
 
 	tasks, err := database.GetTasksByUserId(int64(id))
 	if err != nil {
-		return fmtResponse.FormatErrorResponse(c, fiber.StatusBadRequest, err)
+		return utils.FormatErrorResponse(c, fiber.StatusBadRequest, err)
 	}
 
-	return fmtResponse.FormatSuccessResponse(c, tasks)
+	return utils.FormatSuccessResponse(c, tasks)
 }
 
 func getTasksByListIdHandler(c *fiber.Ctx) error {
 	id, err := strconv.Atoi(c.GetRespHeader("id"))
 	if err != nil {
-		return fmtResponse.FormatErrorResponse(c, fiber.StatusBadRequest, err)
+		return utils.FormatErrorResponse(c, fiber.StatusBadRequest, err)
 	}
 
 	tasks, err := database.GetTasksByListId(int64(id))
 	if err != nil {
-		return fmtResponse.FormatErrorResponse(c, fiber.StatusBadRequest, err)
+		return utils.FormatErrorResponse(c, fiber.StatusBadRequest, err)
 	}
 
-	return fmtResponse.FormatSuccessResponse(c, tasks)
+	return utils.FormatSuccessResponse(c, tasks)
 }

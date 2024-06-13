@@ -1,4 +1,4 @@
-package fmtResponse
+package utils
 
 import "github.com/gofiber/fiber/v2"
 
