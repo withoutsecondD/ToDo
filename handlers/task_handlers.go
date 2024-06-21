@@ -3,54 +3,53 @@ package handlers
 import (
 	"errors"
 	"github.com/gofiber/fiber/v2"
+	"github.com/golang-jwt/jwt/v5"
 	"github.com/withoutsecondd/ToDo/database"
 	"github.com/withoutsecondd/ToDo/internal/utils"
 	"strconv"
 )
 
-// GetTasksByIdHandler returns response with tasks specified by user id or by list id they belong to
+// GetTasksByIdHandler returns response with tasks specified by list id they belong to.
+// If no list id is provided, returns tasks by user
 func GetTasksByIdHandler(c *fiber.Ctx) error {
-	userId := c.Queries()["user_id"]
-
-	if userId != "" {
-		c.Append("id", userId)
-		return getTasksByUserIdHandler(c)
-	}
-
-	listId := c.Queries()["list_id"]
-
-	if listId != "" {
-		c.Append("id", listId)
-		return getTasksByListIdHandler(c)
-	}
-
-	return utils.FormatErrorResponse(c, fiber.StatusBadRequest, errors.New("no user_id or list_id parameter is specified"))
-}
-
-func getTasksByUserIdHandler(c *fiber.Ctx) error {
-	id, err := strconv.Atoi(c.GetRespHeader("id"))
+	token, err := utils.ValidateJwtToken(c)
 	if err != nil {
-		return utils.FormatErrorResponse(c, fiber.StatusBadRequest, err)
+		return utils.FormatErrorResponse(c, fiber.StatusUnauthorized, err)
 	}
 
-	tasks, err := database.GetTasksByUserId(int64(id))
-	if err != nil {
-		return utils.FormatErrorResponse(c, fiber.StatusBadRequest, err)
+	listIdStr := c.Queries()["list_id"]
+
+	claims, ok := token.Claims.(jwt.MapClaims)
+	if !ok || !token.Valid {
+		return utils.FormatErrorResponse(c, fiber.StatusInternalServerError, errors.New("error getting token claims"))
 	}
 
-	return utils.FormatSuccessResponse(c, tasks)
-}
+	userId := int64(claims["id"].(float64))
 
-func getTasksByListIdHandler(c *fiber.Ctx) error {
-	id, err := strconv.Atoi(c.GetRespHeader("id"))
-	if err != nil {
-		return utils.FormatErrorResponse(c, fiber.StatusBadRequest, err)
+	if listIdStr == "" {
+		tasks, err := database.GetTasksByUserId(userId)
+		if err != nil {
+			return utils.FormatErrorResponse(c, fiber.StatusInternalServerError, err)
+		}
+
+		return utils.FormatSuccessResponse(c, tasks)
+	} else {
+		listId, err := strconv.Atoi(listIdStr)
+		if err != nil {
+			return utils.FormatErrorResponse(c, fiber.StatusBadRequest, err)
+		}
+
+		list, err := database.GetListById(int64(listId))
+
+		if list.UserID != userId {
+			return utils.FormatErrorResponse(c, fiber.StatusForbidden, errors.New("this list doesn't belong to current user"))
+		}
+
+		tasks, err := database.GetTasksByListId(list.ID)
+		if err != nil {
+			return utils.FormatErrorResponse(c, fiber.StatusInternalServerError, err)
+		}
+
+		return utils.FormatSuccessResponse(c, tasks)
 	}
-
-	tasks, err := database.GetTasksByListId(int64(id))
-	if err != nil {
-		return utils.FormatErrorResponse(c, fiber.StatusBadRequest, err)
-	}
-
-	return utils.FormatSuccessResponse(c, tasks)
 }

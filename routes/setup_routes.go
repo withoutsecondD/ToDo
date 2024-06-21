@@ -17,14 +17,13 @@ func setupLoginRoute(a *fiber.App) {
 }
 
 func setupUserRoutes(a *fiber.App) {
-	a.Get("/users/", handlers.GetAllUsersHandler)
-	a.Get("/users/:id", handlers.GetUserByIdHandler)
+	a.Get("/user", handlers.GetCurrentUserHandler)
 }
 
 func setupListRoutes(a *fiber.App) {
-	a.Get("/lists", handlers.GetListsByUserIdHandler) // Requires user_id as a query variable
+	a.Get("/lists", handlers.GetListsByCurrentUserHandler)
 }
 
 func setupTaskRoutes(a *fiber.App) {
-	a.Get("/tasks", handlers.GetTasksByIdHandler) // Requires list_id or user_id as a query variable
+	a.Get("/tasks", handlers.GetTasksByIdHandler) // Requires list_id as a query variable, if no provided, returns tasks by user
 }

@@ -3,6 +3,7 @@ package handlers
 import (
 	"errors"
 	"github.com/gofiber/fiber/v2"
+	"github.com/withoutsecondd/ToDo/database"
 	"github.com/withoutsecondd/ToDo/internal/authenticator"
 	"github.com/withoutsecondd/ToDo/internal/utils"
 )
@@ -17,7 +18,12 @@ func LoginHandler(c *fiber.Ctx) error {
 		return utils.FormatErrorResponse(c, fiber.StatusUnauthorized, err)
 	}
 
-	token, err := utils.GenerateJwtToken(loginRequest.Email)
+	user, err := database.GetUserByEmail(loginRequest.Email)
+	if err != nil {
+		return utils.FormatErrorResponse(c, fiber.StatusInternalServerError, err)
+	}
+
+	token, err := utils.GenerateJwtToken(user.ID)
 	if err != nil {
 		return utils.FormatErrorResponse(c, fiber.StatusInternalServerError, err)
 	}
