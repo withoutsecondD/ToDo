@@ -6,6 +6,7 @@ import (
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/withoutsecondd/ToDo/database"
 	"github.com/withoutsecondd/ToDo/internal/utils"
+	"github.com/withoutsecondd/ToDo/models"
 )
 
 func GetCurrentUserHandler(c *fiber.Ctx) error {
@@ -27,4 +28,18 @@ func GetCurrentUserHandler(c *fiber.Ctx) error {
 	}
 
 	return utils.FormatSuccessResponse(c, user)
+}
+
+func CreateUserHandler(c *fiber.Ctx) error {
+	var user *models.User
+	if err := c.BodyParser(&user); err != nil {
+		return utils.FormatErrorResponse(c, fiber.StatusBadRequest, err)
+	}
+
+	createdUser, err := database.CreateUser(user)
+	if err != nil {
+		return utils.FormatErrorResponse(c, fiber.StatusInternalServerError, err)
+	}
+
+	return utils.FormatSuccessResponse(c, createdUser)
 }

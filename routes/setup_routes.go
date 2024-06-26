@@ -18,6 +18,7 @@ func setupLoginRoute(a *fiber.App) {
 
 func setupUserRoutes(a *fiber.App) {
 	a.Get("/user", handlers.GetCurrentUserHandler)
+	a.Post("/user", handlers.CreateUserHandler)
 }
 
 func setupListRoutes(a *fiber.App) {

@@ -6,6 +6,7 @@ import (
 	"github.com/withoutsecondd/ToDo/database"
 	"github.com/withoutsecondd/ToDo/internal/authenticator"
 	"github.com/withoutsecondd/ToDo/internal/utils"
+	"strings"
 )
 
 func LoginHandler(c *fiber.Ctx) error {
@@ -18,7 +19,7 @@ func LoginHandler(c *fiber.Ctx) error {
 		return utils.FormatErrorResponse(c, fiber.StatusUnauthorized, err)
 	}
 
-	user, err := database.GetUserByEmail(loginRequest.Email)
+	user, err := database.GetUserByEmail(strings.ToLower(loginRequest.Email))
 	if err != nil {
 		return utils.FormatErrorResponse(c, fiber.StatusInternalServerError, err)
 	}

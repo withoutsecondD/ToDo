@@ -22,11 +22,17 @@ func main() {
 		log.Fatal(err)
 	}
 
-	routes.SetupAllRoutes(app)
+	err = utils.InitValidate()
+	if err != nil {
+		log.Fatal(err)
+	}
+
 	err = utils.GenerateJwtKey()
 	if err != nil {
-		return
+		log.Fatal(err)
 	}
+
+	routes.SetupAllRoutes(app)
 
 	app.Listen(":8080")
 }

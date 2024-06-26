@@ -7,5 +7,6 @@ Used Frameworks/Packages:
   <li>Go Fiber</li>
   <li>jmoiron/sqlx to perform SQL queries (used database is MySQL)</li>
   <li>x/crypto/bcrypt for encryption and hashing passwords</li>
-  <li>golang-jwt/jwt/v5 for operations with JWT </li>
+  <li>golang-jwt/jwt/v5 for operations with JWT</li>
+  <li>validator/v10 for validating structs fields</li>
 </ul>
