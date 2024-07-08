@@ -1,11 +1,8 @@
-package database
+package service
 
-import (
-	_ "github.com/go-sql-driver/mysql"
-	"github.com/withoutsecondd/ToDo/models"
-)
+import "github.com/withoutsecondd/ToDo/models"
 
-type Database interface {
+type EntityService interface {
 	GetUserById(id int64) (*models.UserResponse, error)
 	GetUserByEmail(email string) (*models.UserResponse, error)
 	GetUserPasswordByEmail(email string) ([]byte, error)
