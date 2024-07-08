@@ -27,7 +27,7 @@ Currently, API is built for a user-specific use, meaning that all endpoints retu
       <ul>
         <li><i>Optional</i> list_id</li>
       </ul><br>
-    Returns tasks specified by the <i>list_id</i> parameter, if no <i>list_id</i> parameter is provided, this endpoing will return all the token bearer's tasks. If list specified by <i>list_id</i> doesn't belong to the token bearer request will fail
+    Returns tasks specified by the <i>list_id</i> parameter, if no <i>list_id</i> parameter is provided, this endpoint will return all the token bearer's tasks. If list specified by <i>list_id</i> doesn't belong to the token bearer request will fail
   </li>
 </ul>
 
