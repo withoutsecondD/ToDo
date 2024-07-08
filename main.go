@@ -5,7 +5,8 @@ import (
 	"github.com/gofiber/fiber/v2/middleware/cors"
 	"github.com/withoutsecondd/ToDo/database"
 	"github.com/withoutsecondd/ToDo/internal/utils"
-	"github.com/withoutsecondd/ToDo/routes"
+	"github.com/withoutsecondd/ToDo/service"
+	"github.com/withoutsecondd/ToDo/todo_handler"
 	"log"
 )
 
@@ -17,22 +18,26 @@ func main() {
 		AllowCredentials: true,
 	}))
 
-	err := database.InitConnection()
+	connection, err := database.InitMySqlConnection()
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	err = utils.InitValidate()
+	db := database.NewMySqlDB(connection)
+	v, err := utils.NewDefaultValidator()
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	err = utils.GenerateJwtKey()
+	mainEntityService := service.NewDefaultEntityService(db, v)
+	jwtAuthService, err := service.NewJwtAuthService(db)
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	routes.SetupAllRoutes(app)
+	handler := todo_handler.NewHandler(mainEntityService, jwtAuthService)
+
+	handler.SetupRoutes(app)
 
 	app.Listen(":8080")
 }
