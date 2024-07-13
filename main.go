@@ -39,5 +39,9 @@ func main() {
 
 	handler.SetupRoutes(app)
 
-	app.Listen(":8080")
+	err = app.Listen(":8080")
+	if err != nil {
+		log.Fatal(err)
+		return
+	}
 }

@@ -5,6 +5,7 @@ import "github.com/gofiber/fiber/v2"
 // FormatErrorResponse Forms a JSON error response from fiber context, status code and error
 func FormatErrorResponse(c *fiber.Ctx, status int, err error) error {
 	return c.Status(status).JSON(fiber.Map{
+		"data":    nil,
 		"success": false,
 		"msg":     err.Error(),
 	})

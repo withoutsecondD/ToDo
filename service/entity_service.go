@@ -8,9 +8,10 @@ type EntityService interface {
 	GetUserPasswordByEmail(email string) ([]byte, error)
 	CreateUser(user *models.User) (*models.UserResponse, error)
 
-	GetListById(id int64) (models.List, error)
+	GetListById(listId int64, userId int64) (*models.List, error)
 	GetListsByUserId(id int64) ([]models.List, error)
 
 	GetTasksByUserId(userId int64) ([]models.Task, error)
-	GetTasksByListId(listId int64) ([]models.Task, error)
+	GetTasksByListId(listId int64, userId int64) ([]models.Task, error)
+	GetTaskById(taskId int64, userId int64) (*models.Task, error)
 }

@@ -74,12 +74,12 @@ func (db *MySqlDB) CreateUser(user *models.User) (*models.UserResponse, error) {
 	return createdUser, nil
 }
 
-func (db *MySqlDB) GetListById(id int64) (models.List, error) {
-	var list models.List
+func (db *MySqlDB) GetListById(id int64) (*models.List, error) {
+	list := &models.List{}
 
-	err := db.DB.Get(&list, "SELECT * FROM withoutsecondd.list WHERE id = ?", id)
+	err := db.DB.Get(list, "SELECT * FROM withoutsecondd.list WHERE id = ?", id)
 	if err != nil {
-		return models.List{}, err
+		return nil, err
 	}
 
 	return list, nil
@@ -123,6 +123,17 @@ func (db *MySqlDB) GetTasksByListId(listId int64) ([]models.Task, error) {
 	}
 
 	return tasks, nil
+}
+
+func (db *MySqlDB) GetTaskById(taskId int64) (*models.Task, error) {
+	task := &models.Task{}
+
+	err := db.DB.Get(task, "SELECT * FROM withoutsecondd.task WHERE id = ?", taskId)
+	if err != nil {
+		return nil, err
+	}
+
+	return task, nil
 }
 
 func InitMySqlConnection() (*sqlx.DB, error) {

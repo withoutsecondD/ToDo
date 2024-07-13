@@ -21,19 +21,22 @@ func NewHandler(es service.EntityService, as service.AuthService) *Handler {
 
 func (h *Handler) SetupRoutes(a *fiber.App) {
 	api := a.Group("/api")
-	api.Post("/login", h.Login)
+	api.Post("/login", h.login)
 
 	users := api.Group("/users")
-	users.Get("/", h.GetCurrentUser)
-	users.Post("/", h.CreateUser)
+	users.Get("/", h.getCurrentUser)
+	users.Post("/", h.createUser)
 
 	lists := api.Group("/lists")
-	lists.Get("/", h.GetListsByCurrentUser)
+	lists.Get("/:listId", h.getListById)
+	lists.Get("/", h.getListsByCurrentUser)
 
 	tasks := api.Group("/tasks")
-	tasks.Get("/", h.GetTasksById) // Requires list_id as a query variable, if no provided, returns tasks by current user)
+	tasks.Get("/:taskId", h.getTaskById)
+	tasks.Get("/", h.getTasksById) // Requires list_id as a query variable, if no provided, returns tasks by current user
 }
 
+// extractToken extracts a token from request's Authorization header
 func (h *Handler) extractToken(c *fiber.Ctx) (string, error) {
 	authHeader := c.Get("Authorization")
 	if authHeader == "" {
@@ -48,7 +51,8 @@ func (h *Handler) extractToken(c *fiber.Ctx) (string, error) {
 	return tokenSlice[1], nil
 }
 
-func (h *Handler) GetCurrentUser(c *fiber.Ctx) error {
+// getCurrentUser returns a response with token bearer's information as a models.UserResponse
+func (h *Handler) getCurrentUser(c *fiber.Ctx) error {
 	tokenStr, err := h.extractToken(c)
 	if err != nil {
 		return utils.FormatErrorResponse(c, fiber.StatusUnauthorized, err)
@@ -67,7 +71,8 @@ func (h *Handler) GetCurrentUser(c *fiber.Ctx) error {
 	return utils.FormatSuccessResponse(c, user)
 }
 
-func (h *Handler) CreateUser(c *fiber.Ctx) error {
+// createUser creates a user and returns a response with created user information as a models.UserResponse
+func (h *Handler) createUser(c *fiber.Ctx) error {
 	var user *models.User
 	if err := c.BodyParser(&user); err != nil {
 		return utils.FormatErrorResponse(c, fiber.StatusBadRequest, err)
@@ -81,7 +86,38 @@ func (h *Handler) CreateUser(c *fiber.Ctx) error {
 	return utils.FormatSuccessResponse(c, createdUser)
 }
 
-func (h *Handler) GetListsByCurrentUser(c *fiber.Ctx) error {
+// getListById returns a response with a list specified by its id
+func (h *Handler) getListById(c *fiber.Ctx) error {
+	tokenStr, err := h.extractToken(c)
+	if err != nil {
+		return utils.FormatErrorResponse(c, fiber.StatusUnauthorized, err)
+	}
+
+	userId, err := h.authService.AuthorizeWithToken(tokenStr)
+	if err != nil {
+		return utils.FormatErrorResponse(c, fiber.StatusUnauthorized, err)
+	}
+
+	listId, err := strconv.Atoi(c.Params("listId"))
+	if err != nil {
+		return utils.FormatErrorResponse(c, fiber.StatusBadRequest, errors.New("invalid listId parameter"))
+	}
+
+	list, err := h.entityService.GetListById(int64(listId), userId)
+	if err != nil {
+		switch {
+		case errors.As(err, &utils.DBError{}):
+			return utils.FormatErrorResponse(c, fiber.StatusNotFound, err)
+		case errors.As(err, &utils.ForbiddenError{}):
+			return utils.FormatErrorResponse(c, fiber.StatusForbidden, err)
+		}
+	}
+
+	return utils.FormatSuccessResponse(c, list)
+}
+
+// getListsByCurrentUser returns a response with lists of token bearer.
+func (h *Handler) getListsByCurrentUser(c *fiber.Ctx) error {
 	tokenStr, err := h.extractToken(c)
 	if err != nil {
 		return utils.FormatErrorResponse(c, fiber.StatusUnauthorized, err)
@@ -100,9 +136,9 @@ func (h *Handler) GetListsByCurrentUser(c *fiber.Ctx) error {
 	return utils.FormatSuccessResponse(c, lists)
 }
 
-// GetTasksById returns response with tasks specified by list id they belong to.
-// If no list id is provided, returns tasks by user
-func (h *Handler) GetTasksById(c *fiber.Ctx) error {
+// getTasksById returns a response with tasks specified by list id they belong to.
+// If no list id is provided, returns tasks by token bearer.
+func (h *Handler) getTasksById(c *fiber.Ctx) error {
 	tokenStr, err := h.extractToken(c)
 	if err != nil {
 		return utils.FormatErrorResponse(c, fiber.StatusUnauthorized, err)
@@ -128,22 +164,54 @@ func (h *Handler) GetTasksById(c *fiber.Ctx) error {
 			return utils.FormatErrorResponse(c, fiber.StatusBadRequest, err)
 		}
 
-		list, err := h.entityService.GetListById(int64(listId))
-
-		if list.UserID != userId {
-			return utils.FormatErrorResponse(c, fiber.StatusForbidden, errors.New("this list doesn't belong to current user"))
-		}
-
-		tasks, err := h.entityService.GetTasksByListId(list.ID)
+		tasks, err := h.entityService.GetTasksByListId(int64(listId), userId)
 		if err != nil {
-			return utils.FormatErrorResponse(c, fiber.StatusInternalServerError, err)
+			switch err.Error() {
+			case "this list doesn't belong to current user":
+				return utils.FormatErrorResponse(c, fiber.StatusForbidden, err)
+			default:
+				return utils.FormatErrorResponse(c, fiber.StatusBadRequest, err)
+			}
 		}
 
 		return utils.FormatSuccessResponse(c, tasks)
 	}
 }
 
-func (h *Handler) Login(c *fiber.Ctx) error {
+// getTaskById return response with task specified by its id.
+func (h *Handler) getTaskById(c *fiber.Ctx) error {
+	tokenStr, err := h.extractToken(c)
+	if err != nil {
+		return utils.FormatErrorResponse(c, fiber.StatusUnauthorized, err)
+	}
+
+	userId, err := h.authService.AuthorizeWithToken(tokenStr)
+	if err != nil {
+		return utils.FormatErrorResponse(c, fiber.StatusUnauthorized, err)
+	}
+
+	taskId, err := strconv.Atoi(c.Params("taskId"))
+	if err != nil {
+		return utils.FormatErrorResponse(c, fiber.StatusBadRequest, err)
+	}
+
+	task, err := h.entityService.GetTaskById(int64(taskId), userId)
+	if err != nil {
+		switch {
+		case errors.As(err, &utils.DBError{}):
+			return utils.FormatErrorResponse(c, fiber.StatusNotFound, err)
+		case errors.As(err, &utils.ForbiddenError{}):
+			return utils.FormatErrorResponse(c, fiber.StatusForbidden, err)
+		}
+	}
+
+	return utils.FormatSuccessResponse(c, task)
+}
+
+// login is used for authentication, service.LoginRequest is used
+// as credentials struct. If credentials are valid this handler will return
+// response with a token.
+func (h *Handler) login(c *fiber.Ctx) error {
 	var loginRequest service.LoginRequest
 	if err := c.BodyParser(&loginRequest); err != nil {
 		return utils.FormatErrorResponse(c, fiber.StatusBadRequest, errors.New("incorrect email or password"))
