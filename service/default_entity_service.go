@@ -71,11 +71,11 @@ func (m *DefaultEntityService) GetTasksByUserId(userId int64) ([]models.Task, er
 func (m *DefaultEntityService) GetTasksByListId(listId int64, userId int64) ([]models.Task, error) {
 	list, err := m.db.GetListById(listId)
 	if err != nil {
-		return nil, err
+		return nil, utils.NewDBError("list not found")
 	}
 
 	if list.UserID != userId {
-		return nil, errors.New("this list doesn't belong to current user")
+		return nil, utils.NewForbiddenError("this list doesn't belong to current user")
 	}
 
 	tasks, err := m.db.GetTasksByListId(list.ID)

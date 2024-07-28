@@ -161,16 +161,16 @@ func (h *Handler) getTasksById(c *fiber.Ctx) error {
 	} else {
 		listId, err := strconv.Atoi(listIdStr)
 		if err != nil {
-			return utils.FormatErrorResponse(c, fiber.StatusBadRequest, err)
+			return utils.FormatErrorResponse(c, fiber.StatusBadRequest, errors.New("invalid list_id parameter value"))
 		}
 
 		tasks, err := h.entityService.GetTasksByListId(int64(listId), userId)
 		if err != nil {
-			switch err.Error() {
-			case "this list doesn't belong to current user":
+			switch {
+			case errors.As(err, &utils.ForbiddenError{}):
 				return utils.FormatErrorResponse(c, fiber.StatusForbidden, err)
-			default:
-				return utils.FormatErrorResponse(c, fiber.StatusBadRequest, err)
+			case errors.As(err, &utils.DBError{}):
+				return utils.FormatErrorResponse(c, fiber.StatusNotFound, err)
 			}
 		}
 
@@ -192,7 +192,7 @@ func (h *Handler) getTaskById(c *fiber.Ctx) error {
 
 	taskId, err := strconv.Atoi(c.Params("taskId"))
 	if err != nil {
-		return utils.FormatErrorResponse(c, fiber.StatusBadRequest, err)
+		return utils.FormatErrorResponse(c, fiber.StatusBadRequest, errors.New("invalid task id"))
 	}
 
 	task, err := h.entityService.GetTaskById(int64(taskId), userId)

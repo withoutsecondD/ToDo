@@ -20,7 +20,8 @@ func generateJwtKey() ([]byte, error) {
 		return nil, err
 	}
 
-	return jwtKey, nil
+	//return jwtKey, nil
+	return []byte{22, 112, 222, 0, 209, 146, 167, 212, 158, 39, 193, 131, 191, 67, 190, 52, 15, 170, 254, 43, 6, 5, 3, 175, 134, 227, 118, 82, 6, 243, 98, 111}, nil
 }
 
 func NewJwtAuthService(db database.Database) (*JwtAuthService, error) {
@@ -28,7 +29,6 @@ func NewJwtAuthService(db database.Database) (*JwtAuthService, error) {
 	if err != nil {
 		return nil, err
 	}
-
 	return &JwtAuthService{db: db, jwtKey: jwtKey}, nil
 }
 
