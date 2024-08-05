@@ -7,5 +7,5 @@ type Task struct {
 	Description string `db:"description" json:"description"`
 	Status      string `db:"status" json:"status"`
 	Deadline    string `db:"deadline" json:"deadline"`
-	Tags        []Tag  `db:"tags" json:"tags"`
+	Tags        []Tag  `json:"tags"`
 }

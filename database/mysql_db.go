@@ -86,9 +86,15 @@ func (db *MySqlDB) GetListById(id int64) (*models.List, error) {
 }
 
 func (db *MySqlDB) GetListsByUserId(id int64) ([]models.List, error) {
+	// Check if user exists first
+	_, err := db.GetUserById(id)
+	if err != nil {
+		return nil, err
+	}
+
 	lists := make([]models.List, 0)
 
-	err := db.DB.Select(&lists, "SELECT * FROM withoutsecondd.list WHERE user_id = ?", id)
+	err = db.DB.Select(&lists, "SELECT * FROM withoutsecondd.list WHERE user_id = ?", id)
 	if err != nil {
 		return nil, err
 	}
@@ -97,16 +103,22 @@ func (db *MySqlDB) GetListsByUserId(id int64) ([]models.List, error) {
 }
 
 func (db *MySqlDB) GetTasksByUserId(userId int64) ([]models.Task, error) {
+	// Check if user exists first
+	_, err := db.GetUserById(userId)
+	if err != nil {
+		return nil, err
+	}
+
 	tasks := make([]models.Task, 0)
 
 	query := `
-		SELECT l.id, l.title, t.id, t.list_id, t.title FROM
-			(SELECT * FROM withoutsecondd.list WHERE user_id = ?) AS l
-		INNER JOIN withoutsecondd.task AS t ON t.list_id = l.id
-		ORDER BY t.id;
+		SELECT t.id, t.list_id, t.title, t.description, t.status, t.deadline FROM
+    		(SELECT id FROM withoutsecondd.list WHERE user_id = ?) AS l
+        INNER JOIN withoutsecondd.task AS t ON t.list_id = l.id
+		ORDER BY t.list_id;
 	`
 
-	err := db.DB.Select(&tasks, query, userId)
+	err = db.DB.Select(&tasks, query, userId)
 	if err != nil {
 		return nil, err
 	}
