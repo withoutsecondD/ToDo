@@ -38,4 +38,5 @@ Currently, API is built for a user-specific use, meaning that all endpoints retu
   <li>x/crypto/bcrypt for encryption and hashing passwords</li>
   <li>golang-jwt/jwt/v5 for operations with JWT</li>
   <li>validator/v10 for validating structs fields</li>
+  <li>zhashkevych/go-sqlxmock for mocking sql driver behavior</li>
 </ul>
