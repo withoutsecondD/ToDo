@@ -5,3 +5,7 @@ type List struct {
 	UserID int64  `db:"user_id" json:"userId"`
 	Title  string `db:"title" json:"title"`
 }
+
+type ListCreateDto struct {
+	Title string `json:"title" validate:"min=1,max=30"`
+}

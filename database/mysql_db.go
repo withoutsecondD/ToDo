@@ -6,6 +6,7 @@ import (
 	"github.com/go-sql-driver/mysql"
 	"github.com/jmoiron/sqlx"
 	"github.com/joho/godotenv"
+	"github.com/withoutsecondd/ToDo/internal/utils"
 	"github.com/withoutsecondd/ToDo/models"
 	"os"
 	"strings"
@@ -22,8 +23,8 @@ func NewMySqlDB(db *sqlx.DB) *MySqlDB {
 func (db *MySqlDB) GetUserById(id int64) (*models.UserResponse, error) {
 	user := &models.UserResponse{}
 
-	err := db.DB.Get(user, "SELECT id, age, first_name, last_name, city, email FROM withoutsecondd.user WHERE id = ?", id)
-	if err != nil {
+	query := "SELECT id, age, first_name, last_name, city, email FROM withoutsecondd.user WHERE id = ?"
+	if err := db.DB.Get(user, query, id); err != nil {
 		return nil, err
 	}
 
@@ -33,8 +34,8 @@ func (db *MySqlDB) GetUserById(id int64) (*models.UserResponse, error) {
 func (db *MySqlDB) GetUserByEmail(email string) (*models.UserResponse, error) {
 	user := &models.UserResponse{}
 
-	err := db.DB.Get(user, "SELECT id, age, first_name, last_name, city, email FROM withoutsecondd.user WHERE email = ?", email)
-	if err != nil {
+	query := "SELECT id, age, first_name, last_name, city, email FROM withoutsecondd.user WHERE email = ?"
+	if err := db.DB.Get(user, query, email); err != nil {
 		return nil, err
 	}
 
@@ -44,8 +45,8 @@ func (db *MySqlDB) GetUserByEmail(email string) (*models.UserResponse, error) {
 func (db *MySqlDB) GetUserPasswordByEmail(email string) ([]byte, error) {
 	var password []byte
 
-	err := db.DB.Get(&password, "SELECT password FROM withoutsecondd.user WHERE email = ?", email)
-	if err != nil {
+	query := "SELECT password FROM withoutsecondd.user WHERE email = ?"
+	if err := db.DB.Get(&password, query, email); err != nil {
 		return nil, err
 	}
 
@@ -62,7 +63,9 @@ func (db *MySqlDB) CreateUser(user *models.User) (*models.UserResponse, error) {
 	if err != nil {
 		var sqlErr *mysql.MySQLError
 		if errors.As(err, &sqlErr) && sqlErr.Number == 1062 {
-			return nil, errors.New("user with such email already exists")
+			return nil, utils.NewDBError("user with such email already exists")
+		} else {
+			return nil, err
 		}
 	}
 
@@ -77,38 +80,61 @@ func (db *MySqlDB) CreateUser(user *models.User) (*models.UserResponse, error) {
 func (db *MySqlDB) GetListById(id int64) (*models.List, error) {
 	list := &models.List{}
 
-	err := db.DB.Get(list, "SELECT * FROM withoutsecondd.list WHERE id = ?", id)
-	if err != nil {
+	query := "SELECT * FROM withoutsecondd.list WHERE id = ?"
+	if err := db.DB.Get(list, query, id); err != nil {
 		return nil, err
 	}
 
 	return list, nil
 }
 
-func (db *MySqlDB) GetListsByUserId(id int64) ([]models.List, error) {
-	// Check if user exists first
-	_, err := db.GetUserById(id)
-	if err != nil {
-		return nil, err
-	}
-
+func (db *MySqlDB) GetListsByUserId(userId int64) ([]models.List, error) {
 	lists := make([]models.List, 0)
 
-	err = db.DB.Select(&lists, "SELECT * FROM withoutsecondd.list WHERE user_id = ?", id)
-	if err != nil {
+	query := "SELECT * FROM withoutsecondd.list WHERE user_id = ?"
+	if err := db.DB.Select(&lists, query, userId); err != nil {
 		return nil, err
 	}
 
 	return lists, nil
 }
 
-func (db *MySqlDB) GetTasksByUserId(userId int64) ([]models.Task, error) {
-	// Check if user exists first
-	_, err := db.GetUserById(userId)
+func (db *MySqlDB) CreateList(list *models.List) (*models.List, error) {
+	query := `
+		INSERT INTO withoutsecondd.list(user_id, title) 
+		VALUES(?, ?);
+	`
+
+	result, err := db.DB.Exec(query, list.UserID, list.Title)
 	if err != nil {
 		return nil, err
 	}
 
+	insertedListId, err := result.LastInsertId()
+	if err != nil {
+		return nil, err
+	}
+
+	createdList, err := db.GetListById(insertedListId)
+	if err != nil {
+		return nil, err
+	}
+
+	return createdList, nil
+}
+
+func (db *MySqlDB) GetTaskById(id int64) (*models.Task, error) {
+	task := &models.Task{}
+
+	query := "SELECT * FROM withoutsecondd.task WHERE id = ?"
+	if err := db.DB.Get(task, query, id); err != nil {
+		return nil, err
+	}
+
+	return task, nil
+}
+
+func (db *MySqlDB) GetTasksByUserId(userId int64) ([]models.Task, error) {
 	tasks := make([]models.Task, 0)
 
 	query := `
@@ -117,9 +143,7 @@ func (db *MySqlDB) GetTasksByUserId(userId int64) ([]models.Task, error) {
         INNER JOIN withoutsecondd.task AS t ON t.list_id = l.id
 		ORDER BY t.list_id;
 	`
-
-	err = db.DB.Select(&tasks, query, userId)
-	if err != nil {
+	if err := db.DB.Select(&tasks, query, userId); err != nil {
 		return nil, err
 	}
 
@@ -129,38 +153,98 @@ func (db *MySqlDB) GetTasksByUserId(userId int64) ([]models.Task, error) {
 func (db *MySqlDB) GetTasksByListId(listId int64) ([]models.Task, error) {
 	tasks := make([]models.Task, 0)
 
-	err := db.DB.Select(&tasks, "SELECT * FROM withoutsecondd.task WHERE list_id = ?", listId)
-	if err != nil {
+	query := "SELECT * FROM withoutsecondd.task WHERE list_id = ?"
+	if err := db.DB.Select(&tasks, query, listId); err != nil {
 		return nil, err
 	}
 
 	return tasks, nil
 }
 
-func (db *MySqlDB) GetTaskById(taskId int64) (*models.Task, error) {
-	task := &models.Task{}
+func (db *MySqlDB) CreateTask(task *models.Task) (*models.Task, error) {
+	query := `
+		INSERT INTO withoutsecondd.task(id, list_id, title, description, status, deadline) 
+		VALUES(?, ?, ?, ?, ?, ?)
+	`
+	_, err := db.DB.Queryx(query, task.ID, task.ListID, task.Title, task.Description, task.Status, task.Deadline)
+	if err != nil {
+		var sqlErr *mysql.MySQLError
+		if errors.As(err, &sqlErr) && sqlErr.Number == 1062 {
+			return nil, utils.NewDBError("task with such id already exists")
+		} else {
+			return nil, err
+		}
+	}
 
-	err := db.DB.Get(task, "SELECT * FROM withoutsecondd.task WHERE id = ?", taskId)
+	createdTask, err := db.GetTaskById(task.ID)
 	if err != nil {
 		return nil, err
 	}
 
-	return task, nil
+	return createdTask, nil
+}
+
+func (db *MySqlDB) GetTagById(id int64) (*models.Tag, error) {
+	tag := &models.Tag{}
+
+	query := "SELECT * FROM withoutsecondd.tag WHERE id = ?"
+	if err := db.DB.Get(tag, query, id); err != nil {
+		return nil, err
+	}
+
+	return tag, nil
+}
+
+func (db *MySqlDB) GetTagsByTaskId(taskId int64) ([]models.Tag, error) {
+	tags := make([]models.Tag, 0)
+
+	query := `
+		SELECT tag.id, tag.title, tag.color, tag.user_id FROM withoutsecondd.task_tag
+		INNER JOIN withoutsecondd.tag tag on task_tag.tag_id = tag.id
+		WHERE task_id = ?
+	`
+	if err := db.DB.Select(tags, query); err != nil {
+		return nil, err
+	}
+
+	return tags, nil
+}
+
+func (db *MySqlDB) CreateTag(tag *models.Tag) (*models.Tag, error) {
+	query := `
+		INSERT INTO withoutsecondd.tag(id, title, color, user_id)
+		VALUES(?, ?, ?, ?)
+	`
+	_, err := db.DB.Queryx(query, tag.ID, tag.Title, tag.Color, tag.UserID)
+	if err != nil {
+		var sqlErr *mysql.MySQLError
+		if errors.As(err, &sqlErr) && sqlErr.Number == 1062 {
+			return nil, utils.NewDBError("task with such id already exists")
+		} else {
+			return nil, err
+		}
+	}
+
+	createdTag, err := db.GetTagById(tag.ID)
+	if err != nil {
+		return nil, err
+	}
+
+	return createdTag, nil
 }
 
 func InitMySqlConnection() (*sqlx.DB, error) {
-	err := godotenv.Load()
-	if err != nil {
+	if err := godotenv.Load(); err != nil {
 		return nil, err
 	}
 
 	db, err := sqlx.Connect(
 		"mysql",
 		fmt.Sprintf("%s:%s@tcp(%s)/%s?parseTime=true",
-			os.Getenv("DB_USER"),
-			os.Getenv("DB_PASSWORD"),
-			os.Getenv("DB_ADDRESS"),
-			os.Getenv("DB_SCHEMA"),
+			os.Getenv("MYSQL_DB_USER"),
+			os.Getenv("MYSQL_DB_PASSWORD"),
+			os.Getenv("MYSQL_DB_ADDRESS"),
+			os.Getenv("MYSQL_DB_SCHEMA"),
 		),
 	)
 	if err != nil {

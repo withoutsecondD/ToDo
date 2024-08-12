@@ -30,10 +30,12 @@ func (h *Handler) SetupRoutes(a *fiber.App) {
 	lists := api.Group("/lists")
 	lists.Get("/:listId", h.getListById)
 	lists.Get("/", h.getListsByCurrentUser)
+	lists.Post("/", h.createList)
 
 	tasks := api.Group("/tasks")
 	tasks.Get("/:taskId", h.getTaskById)
 	tasks.Get("/", h.getTasksById) // Requires list_id as a query variable, if no provided, returns tasks by current user
+	tasks.Post("/", h.createTask)
 }
 
 // extractToken extracts a token from request's Authorization header
@@ -136,6 +138,30 @@ func (h *Handler) getListsByCurrentUser(c *fiber.Ctx) error {
 	return utils.FormatSuccessResponse(c, lists)
 }
 
+func (h *Handler) createList(c *fiber.Ctx) error {
+	tokenStr, err := h.extractToken(c)
+	if err != nil {
+		return utils.FormatErrorResponse(c, fiber.StatusUnauthorized, err)
+	}
+
+	userId, err := h.authService.AuthorizeWithToken(tokenStr)
+	if err != nil {
+		return utils.FormatErrorResponse(c, fiber.StatusUnauthorized, err)
+	}
+
+	var listDto *models.ListCreateDto
+	if err := c.BodyParser(&listDto); err != nil {
+		return utils.FormatErrorResponse(c, fiber.StatusBadRequest, err)
+	}
+
+	createdList, err := h.entityService.CreateList(listDto, userId)
+	if err != nil {
+		return utils.FormatErrorResponse(c, fiber.StatusInternalServerError, err)
+	}
+
+	return utils.FormatSuccessResponse(c, createdList)
+}
+
 // getTasksById returns a response with tasks specified by list id they belong to.
 // If no list id is provided, returns tasks by token bearer.
 func (h *Handler) getTasksById(c *fiber.Ctx) error {
@@ -206,6 +232,30 @@ func (h *Handler) getTaskById(c *fiber.Ctx) error {
 	}
 
 	return utils.FormatSuccessResponse(c, task)
+}
+
+func (h *Handler) createTask(c *fiber.Ctx) error {
+	tokenStr, err := h.extractToken(c)
+	if err != nil {
+		return utils.FormatErrorResponse(c, fiber.StatusUnauthorized, err)
+	}
+
+	_, err = h.authService.AuthorizeWithToken(tokenStr)
+	if err != nil {
+		return utils.FormatErrorResponse(c, fiber.StatusUnauthorized, err)
+	}
+
+	var task *models.Task
+	if err := c.BodyParser(&task); err != nil {
+		return utils.FormatErrorResponse(c, fiber.StatusBadRequest, err)
+	}
+
+	createdTask, err := h.entityService.CreateTask(task)
+	if err != nil {
+		return utils.FormatErrorResponse(c, fiber.StatusInternalServerError, err)
+	}
+
+	return utils.FormatSuccessResponse(c, createdTask)
 }
 
 // login is used for authentication, service.LoginRequest is used

@@ -18,20 +18,20 @@ func NewDefaultEntityService(d database.Database, v utils.Validator) *DefaultEnt
 	return &DefaultEntityService{db: d, v: v}
 }
 
-func (m *DefaultEntityService) GetUserById(id int64) (*models.UserResponse, error) {
-	return m.db.GetUserById(id)
+func (s *DefaultEntityService) GetUserById(id int64) (*models.UserResponse, error) {
+	return s.db.GetUserById(id)
 }
 
-func (m *DefaultEntityService) GetUserByEmail(email string) (*models.UserResponse, error) {
-	return m.db.GetUserByEmail(email)
+func (s *DefaultEntityService) GetUserByEmail(email string) (*models.UserResponse, error) {
+	return s.db.GetUserByEmail(email)
 }
 
-func (m *DefaultEntityService) GetUserPasswordByEmail(email string) ([]byte, error) {
-	return m.db.GetUserPasswordByEmail(email)
+func (s *DefaultEntityService) GetUserPasswordByEmail(email string) ([]byte, error) {
+	return s.db.GetUserPasswordByEmail(email)
 }
 
-func (m *DefaultEntityService) CreateUser(user *models.User) (*models.UserResponse, error) {
-	err := m.v.ValidateStruct(user)
+func (s *DefaultEntityService) CreateUser(user *models.User) (*models.UserResponse, error) {
+	err := s.v.ValidateStruct(user)
 	if err != nil {
 		return nil, errors.New("refused to create a user: some fields are invalid")
 	}
@@ -41,14 +41,15 @@ func (m *DefaultEntityService) CreateUser(user *models.User) (*models.UserRespon
 		return nil, err
 	}
 
+	user.ID = 0
 	user.Password = string(hashedPassword)
 	user.Email = strings.ToLower(user.Email)
 
-	return m.db.CreateUser(user)
+	return s.db.CreateUser(user)
 }
 
-func (m *DefaultEntityService) GetListById(listId int64, userId int64) (*models.List, error) {
-	list, err := m.db.GetListById(listId)
+func (s *DefaultEntityService) GetListById(listId int64, userId int64) (*models.List, error) {
+	list, err := s.db.GetListById(listId)
 	if err != nil {
 		return nil, utils.NewDBError("list not found")
 	}
@@ -60,16 +61,43 @@ func (m *DefaultEntityService) GetListById(listId int64, userId int64) (*models.
 	return list, nil
 }
 
-func (m *DefaultEntityService) GetListsByUserId(id int64) ([]models.List, error) {
-	return m.db.GetListsByUserId(id)
+func (s *DefaultEntityService) GetListsByUserId(id int64) ([]models.List, error) {
+	// Check if the user exists first
+	_, err := s.db.GetUserById(id)
+	if err != nil {
+		return nil, err
+	}
+
+	return s.db.GetListsByUserId(id)
 }
 
-func (m *DefaultEntityService) GetTasksByUserId(userId int64) ([]models.Task, error) {
-	return m.db.GetTasksByUserId(userId)
+func (s *DefaultEntityService) CreateList(listDto *models.ListCreateDto, userId int64) (*models.List, error) {
+	err := s.v.ValidateStruct(listDto)
+	if err != nil {
+		return nil, errors.New("refused to create a list: some fields are invalid")
+	}
+
+	list := &models.List{
+		ID:     0,
+		UserID: userId,
+		Title:  listDto.Title,
+	}
+
+	return s.db.CreateList(list)
 }
 
-func (m *DefaultEntityService) GetTasksByListId(listId int64, userId int64) ([]models.Task, error) {
-	list, err := m.db.GetListById(listId)
+func (s *DefaultEntityService) GetTasksByUserId(userId int64) ([]models.Task, error) {
+	// Check if the user exists first
+	_, err := s.db.GetUserById(userId)
+	if err != nil {
+		return nil, err
+	}
+
+	return s.db.GetTasksByUserId(userId)
+}
+
+func (s *DefaultEntityService) GetTasksByListId(listId int64, userId int64) ([]models.Task, error) {
+	list, err := s.db.GetListById(listId)
 	if err != nil {
 		return nil, utils.NewDBError("list not found")
 	}
@@ -78,7 +106,7 @@ func (m *DefaultEntityService) GetTasksByListId(listId int64, userId int64) ([]m
 		return nil, utils.NewForbiddenError("this list doesn't belong to current user")
 	}
 
-	tasks, err := m.db.GetTasksByListId(list.ID)
+	tasks, err := s.db.GetTasksByListId(list.ID)
 	if err != nil {
 		return nil, err
 	}
@@ -86,13 +114,13 @@ func (m *DefaultEntityService) GetTasksByListId(listId int64, userId int64) ([]m
 	return tasks, nil
 }
 
-func (m *DefaultEntityService) GetTaskById(taskId int64, userId int64) (*models.Task, error) {
-	task, err := m.db.GetTaskById(taskId)
+func (s *DefaultEntityService) GetTaskById(taskId int64, userId int64) (*models.Task, error) {
+	task, err := s.db.GetTaskById(taskId)
 	if err != nil {
 		return nil, utils.NewDBError("task not found")
 	}
 
-	list, err := m.db.GetListById(task.ListID)
+	list, err := s.db.GetListById(task.ListID)
 	if err != nil {
 		return nil, utils.NewDBError("task is invalid: list this task belongs to is not found")
 	}
@@ -102,4 +130,44 @@ func (m *DefaultEntityService) GetTaskById(taskId int64, userId int64) (*models.
 	}
 
 	return task, nil
+}
+
+func (s *DefaultEntityService) CreateTask(task *models.Task) (*models.Task, error) {
+	return s.db.CreateTask(task)
+}
+
+func (s *DefaultEntityService) GetTagById(tagId int64, userId int64) (*models.Tag, error) {
+	tag, err := s.db.GetTagById(tagId)
+	if err != nil {
+		return nil, err
+	}
+
+	if tag.UserID != userId {
+		return nil, utils.NewForbiddenError("this tag doesn't belong to current user")
+	}
+
+	return tag, nil
+}
+
+func (s *DefaultEntityService) GetTagsByTaskId(taskId int64, userId int64) ([]models.Tag, error) {
+	task, err := s.db.GetTaskById(taskId)
+	if err != nil {
+		return nil, err
+	}
+
+	list, err := s.db.GetListById(task.ListID)
+	if err != nil {
+		return nil, err
+	}
+
+	if list.UserID != userId {
+		return nil, utils.NewForbiddenError("this task belongs to other user's list")
+	}
+
+	tags, err := s.db.GetTagsByTaskId(taskId)
+	if err != nil {
+		return nil, err
+	}
+
+	return tags, nil
 }

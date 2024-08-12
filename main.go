@@ -11,7 +11,10 @@ import (
 )
 
 func main() {
-	app := fiber.New()
+	app := fiber.New(fiber.Config{
+		AppName:     "ToDo REST API application",
+		JSONDecoder: utils.CustomJSONDecoder,
+	})
 	app.Use(cors.New(cors.Config{
 		AllowOrigins:     "http://localhost:3000", // URL фронтенда
 		AllowHeaders:     "Authorization, Content-Type",

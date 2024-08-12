@@ -12,9 +12,15 @@ type Database interface {
 	CreateUser(user *models.User) (*models.UserResponse, error)
 
 	GetListById(id int64) (*models.List, error)
-	GetListsByUserId(id int64) ([]models.List, error)
+	GetListsByUserId(userId int64) ([]models.List, error)
+	CreateList(list *models.List) (*models.List, error)
 
+	GetTaskById(id int64) (*models.Task, error)
 	GetTasksByUserId(userId int64) ([]models.Task, error)
 	GetTasksByListId(listId int64) ([]models.Task, error)
-	GetTaskById(taskId int64) (*models.Task, error)
+	CreateTask(task *models.Task) (*models.Task, error)
+
+	GetTagById(id int64) (*models.Tag, error)
+	GetTagsByTaskId(taskId int64) ([]models.Tag, error)
+	CreateTag(tag *models.Tag) (*models.Tag, error)
 }

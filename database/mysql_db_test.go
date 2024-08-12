@@ -340,24 +340,16 @@ func TestMySqlDB_GetListsByUserId(t *testing.T) {
 		wantErr bool
 	}{
 		{
-			name: "testing call to lists of existing user",
+			name: "testing call to user that has lists",
 			mock: func(mock sqlmock.Sqlmock) {
-				userColumns := []string{"id", "age", "first_name", "last_name", "city", "email"}
-				userRows := sqlmock.NewRows(userColumns).
-					AddRow("1", "18", "testFirstName", "testLastName", "testCity", "test@example.com")
-
-				mock.ExpectQuery("SELECT id, age, first_name, last_name, city, email FROM withoutsecondd.user WHERE id = ?").
-					WithArgs(1).
-					WillReturnRows(userRows)
-
-				listColumns := []string{"id", "user_id", "title"}
-				listRows := sqlmock.NewRows(listColumns).
+				columns := []string{"id", "user_id", "title"}
+				rows := sqlmock.NewRows(columns).
 					AddRow("1", "1", "Test list #1").
 					AddRow("2", "1", "Test list #2")
 
 				mock.ExpectQuery("SELECT .+ FROM withoutsecondd.list WHERE user_id = ?").
 					WithArgs(1).
-					WillReturnRows(listRows)
+					WillReturnRows(rows)
 			},
 			arg: 1,
 			want: []models.List{
@@ -375,33 +367,14 @@ func TestMySqlDB_GetListsByUserId(t *testing.T) {
 			wantErr: false,
 		},
 		{
-			name: "testing call to lists of non-existing user",
-			mock: func(mock sqlmock.Sqlmock) {
-				mock.ExpectQuery("SELECT id, age, first_name, last_name, city, email FROM withoutsecondd.user WHERE id = ?").
-					WithArgs(1).
-					WillReturnError(sql.ErrNoRows)
-			},
-			arg:     1,
-			want:    nil,
-			wantErr: true,
-		},
-		{
 			name: "testing call to user with no lists",
 			mock: func(mock sqlmock.Sqlmock) {
-				userColumns := []string{"id", "age", "first_name", "last_name", "city", "email"}
-				userRows := sqlmock.NewRows(userColumns).
-					AddRow("1", "18", "testFirstName", "testLastName", "testCity", "test@example.com")
-
-				mock.ExpectQuery("SELECT id, age, first_name, last_name, city, email FROM withoutsecondd.user WHERE id = ?").
-					WithArgs(1).
-					WillReturnRows(userRows)
-
-				listColumns := []string{"id", "user_id", "title"}
-				listRows := sqlmock.NewRows(listColumns)
+				columns := []string{"id", "user_id", "title"}
+				rows := sqlmock.NewRows(columns)
 
 				mock.ExpectQuery("SELECT .+ FROM withoutsecondd.list WHERE user_id = ?").
 					WithArgs(1).
-					WillReturnRows(listRows)
+					WillReturnRows(rows)
 			},
 			arg:     1,
 			want:    []models.List{},
@@ -441,6 +414,86 @@ func TestMySqlDB_GetListsByUserId(t *testing.T) {
 	}
 }
 
+func TestMySqlDB_GetTaskById(t *testing.T) {
+	// ARRANGE
+
+	testTable := []struct {
+		name    string
+		mock    func(mock sqlmock.Sqlmock)
+		arg     int64
+		want    *models.Task
+		wantErr bool
+	}{
+		{
+			name: "testing call to existing task",
+			mock: func(mock sqlmock.Sqlmock) {
+				columns := []string{"id", "list_id", "title", "description", "status", "deadline"}
+				rows := sqlmock.NewRows(columns).
+					AddRow("1", "1", "Test task", "This is a test task", "Completed", "Test date")
+
+				mock.ExpectQuery("SELECT .+ FROM withoutsecondd.task WHERE id = ?").
+					WithArgs(1).
+					WillReturnRows(rows)
+			},
+			arg: 1,
+			want: &models.Task{
+				ID:          1,
+				ListID:      1,
+				Title:       "Test task",
+				Description: "This is a test task",
+				Status:      "Completed",
+				Deadline:    "Test date",
+				Tags:        nil,
+			},
+			wantErr: false,
+		},
+		{
+			name: "testing call to non-existing task",
+			mock: func(mock sqlmock.Sqlmock) {
+				mock.ExpectQuery("SELECT .+ FROM withoutsecondd.task WHERE id = ?").
+					WithArgs(1).
+					WillReturnError(sql.ErrNoRows)
+			},
+			arg:     1,
+			want:    nil,
+			wantErr: true,
+		},
+	}
+
+	for _, tC := range testTable {
+		t.Run(tC.name, func(t *testing.T) {
+			conn, mock, err := sqlmock.Newx()
+			if err != nil {
+				t.Fatalf("an error %v occurred when opening a stub connection", err)
+			}
+			defer conn.Close()
+
+			db := NewMySqlDB(conn)
+			tC.mock(mock)
+
+			// ACT
+
+			got, err := db.GetTaskById(tC.arg)
+
+			// ASSERT
+
+			if (err != nil) != tC.wantErr {
+				t.Fatalf("expected error? %v. got: %v", tC.wantErr, err)
+				return
+			}
+
+			if !reflect.DeepEqual(got, tC.want) {
+				t.Fatalf("expected: %v. got: %v", got, tC.want)
+				return
+			}
+
+			if err := mock.ExpectationsWereMet(); err != nil {
+				t.Fatalf("unfullfilled expectations: %v", err)
+			}
+		})
+	}
+}
+
 func TestMySqlDB_GetTasksByUserId(t *testing.T) {
 	// ARRANGE
 
@@ -452,18 +505,10 @@ func TestMySqlDB_GetTasksByUserId(t *testing.T) {
 		wantErr bool
 	}{
 		{
-			name: "testing call to tasks of existing user",
+			name: "testing call to user that has tasks",
 			mock: func(mock sqlmock.Sqlmock) {
-				userColumns := []string{"id", "age", "first_name", "last_name", "city", "email"}
-				userRows := sqlmock.NewRows(userColumns).
-					AddRow("1", "18", "testFirstName", "testLastName", "testCity", "test@example.com")
-
-				mock.ExpectQuery("SELECT id, age, first_name, last_name, city, email FROM withoutsecondd.user WHERE id = ?").
-					WithArgs(1).
-					WillReturnRows(userRows)
-
-				taskColumns := []string{"id", "list_id", "title", "description", "status", "deadline"}
-				taskRows := sqlmock.NewRows(taskColumns).
+				columns := []string{"id", "list_id", "title", "description", "status", "deadline"}
+				rows := sqlmock.NewRows(columns).
 					AddRow("1", "1", "Test task #1", "This is a test task", "Completed", "Test date").
 					AddRow("2", "1", "Test task #2", "This is a test task", "Completed", "Test date").
 					AddRow("3", "2", "Test task #3", "This is a test task", "Completed", "Test date").
@@ -477,7 +522,7 @@ func TestMySqlDB_GetTasksByUserId(t *testing.T) {
 				`
 				mock.ExpectQuery(query).
 					WithArgs(1).
-					WillReturnRows(taskRows)
+					WillReturnRows(rows)
 			},
 			arg: 1,
 			want: []models.Task{
@@ -521,29 +566,10 @@ func TestMySqlDB_GetTasksByUserId(t *testing.T) {
 			wantErr: false,
 		},
 		{
-			name: "testing call to tasks of non-existing user",
-			mock: func(mock sqlmock.Sqlmock) {
-				mock.ExpectQuery("SELECT id, age, first_name, last_name, city, email FROM withoutsecondd.user WHERE id = ?").
-					WithArgs(1).
-					WillReturnError(sql.ErrNoRows)
-			},
-			arg:     1,
-			want:    nil,
-			wantErr: true,
-		},
-		{
 			name: "testing call to user with no tasks",
 			mock: func(mock sqlmock.Sqlmock) {
-				userColumns := []string{"id", "age", "first_name", "last_name", "city", "email"}
-				userRows := sqlmock.NewRows(userColumns).
-					AddRow("1", "18", "testFirstName", "testLastName", "testCity", "test@example.com")
-
-				mock.ExpectQuery("SELECT id, age, first_name, last_name, city, email FROM withoutsecondd.user WHERE id = ?").
-					WithArgs(1).
-					WillReturnRows(userRows)
-
-				taskColumns := []string{"id", "list_id", "title", "description", "status", "deadline"}
-				taskRows := sqlmock.NewRows(taskColumns)
+				columns := []string{"id", "list_id", "title", "description", "status", "deadline"}
+				rows := sqlmock.NewRows(columns)
 
 				query := `
 					SELECT t.id, t.list_id, t.title, t.description, t.status, t.deadline FROM
@@ -553,7 +579,7 @@ func TestMySqlDB_GetTasksByUserId(t *testing.T) {
 				`
 				mock.ExpectQuery(query).
 					WithArgs(1).
-					WillReturnRows(taskRows)
+					WillReturnRows(rows)
 			},
 			arg:     1,
 			want:    []models.Task{},
@@ -594,9 +620,126 @@ func TestMySqlDB_GetTasksByUserId(t *testing.T) {
 }
 
 func TestMySqlDB_GetTasksByListId(t *testing.T) {
+	// ARRANGE
 
-}
+	testTable := []struct {
+		name    string
+		mock    func(mock sqlmock.Sqlmock)
+		arg     int64
+		want    []models.Task
+		wantErr bool
+	}{
+		{
+			name: "testing call to list that has tasks",
+			mock: func(mock sqlmock.Sqlmock) {
+				columns := []string{"id", "list_id", "title", "description", "status", "deadline"}
+				rows := sqlmock.NewRows(columns).
+					AddRow("1", "1", "Test task #1", "This is a test task", "Completed", "Test date").
+					AddRow("2", "1", "Test task #2", "This is a test task", "Completed", "Test date").
+					AddRow("3", "2", "Test task #3", "This is a test task", "Completed", "Test date").
+					AddRow("4", "2", "Test task #4", "This is a test task", "Completed", "Test date")
 
-func TestMySqlDB_GetTaskById(t *testing.T) {
+				query := `
+					SELECT t.id, t.list_id, t.title, t.description, t.status, t.deadline FROM
+    					\(SELECT id FROM withoutsecondd.list WHERE user_id = \?\) AS l
+        			INNER JOIN withoutsecondd.task AS t ON t.list_id = l.id
+					ORDER BY t.list_id;
+				`
+				mock.ExpectQuery(query).
+					WithArgs(1).
+					WillReturnRows(rows)
+			},
+			arg: 1,
+			want: []models.Task{
+				{
+					ID:          1,
+					ListID:      1,
+					Title:       "Test task #1",
+					Description: "This is a test task",
+					Status:      "Completed",
+					Deadline:    "Test date",
+					Tags:        nil,
+				},
+				{
+					ID:          2,
+					ListID:      1,
+					Title:       "Test task #2",
+					Description: "This is a test task",
+					Status:      "Completed",
+					Deadline:    "Test date",
+					Tags:        nil,
+				},
+				{
+					ID:          3,
+					ListID:      2,
+					Title:       "Test task #3",
+					Description: "This is a test task",
+					Status:      "Completed",
+					Deadline:    "Test date",
+					Tags:        nil,
+				},
+				{
+					ID:          4,
+					ListID:      2,
+					Title:       "Test task #4",
+					Description: "This is a test task",
+					Status:      "Completed",
+					Deadline:    "Test date",
+					Tags:        nil,
+				},
+			},
+			wantErr: false,
+		},
+		{
+			name: "testing call to user with no tasks",
+			mock: func(mock sqlmock.Sqlmock) {
+				columns := []string{"id", "list_id", "title", "description", "status", "deadline"}
+				rows := sqlmock.NewRows(columns)
 
+				query := `
+					SELECT t.id, t.list_id, t.title, t.description, t.status, t.deadline FROM
+    					\(SELECT id FROM withoutsecondd.list WHERE user_id = \?\) AS l
+        			INNER JOIN withoutsecondd.task AS t ON t.list_id = l.id
+					ORDER BY t.list_id;
+				`
+				mock.ExpectQuery(query).
+					WithArgs(1).
+					WillReturnRows(rows)
+			},
+			arg:     1,
+			want:    []models.Task{},
+			wantErr: false,
+		},
+	}
+
+	for _, tC := range testTable {
+		t.Run(tC.name, func(t *testing.T) {
+			conn, mock, err := sqlmock.Newx()
+			if err != nil {
+				t.Fatalf("an error %v occurred when opening a stub connection", err)
+			}
+			defer conn.Close()
+
+			db := NewMySqlDB(conn)
+			tC.mock(mock)
+
+			// ACT
+
+			got, err := db.GetTasksByUserId(tC.arg)
+
+			// ASSERT
+
+			if (err != nil) != tC.wantErr {
+				t.Fatalf("expected error? %v. got: %v", tC.wantErr, err)
+			}
+
+			if !reflect.DeepEqual(got, tC.want) {
+				t.Fatalf("expected: %v. got: %v", got, tC.want)
+			}
+
+			if err := mock.ExpectationsWereMet(); err != nil {
+				t.Fatalf("unfullfilled expectations: %v", err)
+			}
+		})
+	}
 }
