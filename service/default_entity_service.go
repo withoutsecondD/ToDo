@@ -2,11 +2,12 @@ package service
 
 import (
 	"errors"
+	"strings"
+
 	"github.com/withoutsecondd/ToDo/database"
 	"github.com/withoutsecondd/ToDo/internal/utils"
 	"github.com/withoutsecondd/ToDo/models"
 	"golang.org/x/crypto/bcrypt"
-	"strings"
 )
 
 type DefaultEntityService struct {
@@ -34,6 +35,11 @@ func (s *DefaultEntityService) CreateUser(user *models.User) (*models.UserRespon
 	err := s.v.ValidateStruct(user)
 	if err != nil {
 		return nil, errors.New("refused to create a user: some fields are invalid")
+	}
+
+	existingUser, _ := s.db.GetUserByEmail(user.Email)
+	if existingUser != nil {
+		return nil, errors.New("user with such email already exists")
 	}
 
 	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(user.Password), bcrypt.DefaultCost)
@@ -136,6 +142,16 @@ func (s *DefaultEntityService) CreateTask(task *models.Task) (*models.Task, erro
 	return s.db.CreateTask(task)
 }
 
+func (s *DefaultEntityService) GetTagsByUserId(userId int64) ([]models.Tag, error) {
+	// Check if the user exists first
+	_, err := s.db.GetUserById(userId)
+	if err != nil {
+		return nil, err
+	}
+
+	return s.db.GetTagsByUserId(userId)
+}
+
 func (s *DefaultEntityService) GetTagById(tagId int64, userId int64) (*models.Tag, error) {
 	tag, err := s.db.GetTagById(tagId)
 	if err != nil {
@@ -170,4 +186,20 @@ func (s *DefaultEntityService) GetTagsByTaskId(taskId int64, userId int64) ([]mo
 	}
 
 	return tags, nil
+}
+
+func (s *DefaultEntityService) CreateTag(tagDto *models.TagCreateDto, userId int64) (*models.Tag, error) {
+	err := s.v.ValidateStruct(tagDto)
+	if err != nil {
+		return nil, errors.New("refused to create a tag: some fields are invalid")
+	}
+
+	tag := &models.Tag{
+		ID:     0,
+		UserID: userId,
+		Title:  tagDto.Title,
+		Color:  tagDto.Color,
+	}
+
+	return s.db.CreateTag(tag)
 }

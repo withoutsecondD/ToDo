@@ -7,5 +7,5 @@ type List struct {
 }
 
 type ListCreateDto struct {
-	Title string `json:"title" validate:"min=1,max=30"`
+	Title string `json:"title" validate:"required,max=30"`
 }

@@ -6,3 +6,8 @@ type Tag struct {
 	Title  string `db:"title" json:"title"`
 	Color  string `db:"color" json:"color"`
 }
+
+type TagCreateDto struct {
+	Title string `json:"title" validate:"required"`
+	Color string `json:"color" validate:"hexcolor"`
+}

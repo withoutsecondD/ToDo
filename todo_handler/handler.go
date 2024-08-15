@@ -2,12 +2,13 @@ package todo_handler
 
 import (
 	"errors"
+	"strconv"
+	"strings"
+
 	"github.com/gofiber/fiber/v2"
 	"github.com/withoutsecondd/ToDo/internal/utils"
 	"github.com/withoutsecondd/ToDo/models"
 	"github.com/withoutsecondd/ToDo/service"
-	"strconv"
-	"strings"
 )
 
 type Handler struct {
@@ -36,6 +37,11 @@ func (h *Handler) SetupRoutes(a *fiber.App) {
 	tasks.Get("/:taskId", h.getTaskById)
 	tasks.Get("/", h.getTasksById) // Requires list_id as a query variable, if no provided, returns tasks by current user
 	tasks.Post("/", h.createTask)
+
+	tags := api.Group("/tags")
+	tags.Get("/", h.getTags) // Returns tags of a task if task_id query variable provided, returns all tags of a user otherwise
+	tags.Get("/:tagId", h.getTagById)
+	tags.Post("/", h.createTag)
 }
 
 // extractToken extracts a token from request's Authorization header
@@ -256,6 +262,99 @@ func (h *Handler) createTask(c *fiber.Ctx) error {
 	}
 
 	return utils.FormatSuccessResponse(c, createdTask)
+}
+
+func (h *Handler) getTags(c *fiber.Ctx) error {
+	tokenStr, err := h.extractToken(c)
+	if err != nil {
+		return utils.FormatErrorResponse(c, fiber.StatusUnauthorized, err)
+	}
+
+	userId, err := h.authService.AuthorizeWithToken(tokenStr)
+	if err != nil {
+		return utils.FormatErrorResponse(c, fiber.StatusUnauthorized, err)
+	}
+
+	taskIdStr := c.Queries()["task_id"]
+
+	if taskIdStr == "" {
+		tags, err := h.entityService.GetTagsByUserId(userId)
+		if err != nil {
+			return utils.FormatErrorResponse(c, fiber.StatusBadRequest, err)
+		}
+
+		return utils.FormatSuccessResponse(c, tags)
+	} else {
+		taskId, err := strconv.Atoi(taskIdStr)
+		if err != nil {
+			return utils.FormatErrorResponse(c, fiber.StatusBadRequest, errors.New("invalid task_id parameter"))
+		}
+
+		tags, err := h.entityService.GetTagsByTaskId(int64(taskId), userId)
+		if err != nil {
+			switch {
+			case errors.As(err, &utils.ForbiddenError{}):
+				return utils.FormatErrorResponse(c, fiber.StatusForbidden, err)
+			case errors.As(err, &utils.DBError{}):
+				return utils.FormatErrorResponse(c, fiber.StatusInternalServerError, err)
+			}
+		}
+
+		return utils.FormatSuccessResponse(c, tags)
+	}
+}
+
+func (h *Handler) getTagById(c *fiber.Ctx) error {
+	tokenStr, err := h.extractToken(c)
+	if err != nil {
+		return utils.FormatErrorResponse(c, fiber.StatusUnauthorized, err)
+	}
+
+	userId, err := h.authService.AuthorizeWithToken(tokenStr)
+	if err != nil {
+		return utils.FormatErrorResponse(c, fiber.StatusUnauthorized, err)
+	}
+
+	tagId, err := strconv.Atoi(c.Params("tagId"))
+	if err != nil {
+		return utils.FormatErrorResponse(c, fiber.StatusBadRequest, errors.New("invalid tag id"))
+	}
+
+	tag, err := h.entityService.GetTagById(int64(tagId), userId)
+	if err != nil {
+		switch {
+		case errors.As(err, &utils.DBError{}):
+			return utils.FormatErrorResponse(c, fiber.StatusNotFound, err)
+		case errors.As(err, &utils.ForbiddenError{}):
+			return utils.FormatErrorResponse(c, fiber.StatusForbidden, err)
+		}
+	}
+
+	return utils.FormatSuccessResponse(c, tag)
+}
+
+func (h *Handler) createTag(c *fiber.Ctx) error {
+	tokenStr, err := h.extractToken(c)
+	if err != nil {
+		return utils.FormatErrorResponse(c, fiber.StatusUnauthorized, err)
+	}
+
+	userId, err := h.authService.AuthorizeWithToken(tokenStr)
+	if err != nil {
+		return utils.FormatErrorResponse(c, fiber.StatusUnauthorized, err)
+	}
+
+	var tag *models.TagCreateDto
+	if err := c.BodyParser(&tag); err != nil {
+		return utils.FormatErrorResponse(c, fiber.StatusBadRequest, err)
+	}
+
+	createdTag, err := h.entityService.CreateTag(tag, userId)
+	if err != nil {
+		return utils.FormatErrorResponse(c, fiber.StatusInternalServerError, err)
+	}
+
+	return utils.FormatSuccessResponse(c, createdTag)
 }
 
 // login is used for authentication, service.LoginRequest is used

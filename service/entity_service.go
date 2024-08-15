@@ -18,5 +18,7 @@ type EntityService interface {
 	CreateTask(task *models.Task) (*models.Task, error)
 
 	GetTagById(tagId int64, userId int64) (*models.Tag, error)
+	GetTagsByUserId(userId int64) ([]models.Tag, error)
 	GetTagsByTaskId(taskId int64, userId int64) ([]models.Tag, error)
+	CreateTag(tagDto *models.TagCreateDto, userId int64) (*models.Tag, error)
 }

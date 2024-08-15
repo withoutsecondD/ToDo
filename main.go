@@ -1,13 +1,14 @@
 package main
 
 import (
+	"log"
+
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/cors"
 	"github.com/withoutsecondd/ToDo/database"
 	"github.com/withoutsecondd/ToDo/internal/utils"
 	"github.com/withoutsecondd/ToDo/service"
 	"github.com/withoutsecondd/ToDo/todo_handler"
-	"log"
 )
 
 func main() {
@@ -42,7 +43,7 @@ func main() {
 
 	handler.SetupRoutes(app)
 
-	err = app.Listen(":8080")
+	err = app.Listen("localhost:8080")
 	if err != nil {
 		log.Fatal(err)
 		return

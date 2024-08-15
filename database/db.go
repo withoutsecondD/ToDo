@@ -21,6 +21,7 @@ type Database interface {
 	CreateTask(task *models.Task) (*models.Task, error)
 
 	GetTagById(id int64) (*models.Tag, error)
+	GetTagsByUserId(userId int64) ([]models.Tag, error)
 	GetTagsByTaskId(taskId int64) ([]models.Tag, error)
 	CreateTag(tag *models.Tag) (*models.Tag, error)
 }

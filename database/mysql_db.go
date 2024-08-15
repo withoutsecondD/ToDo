@@ -3,13 +3,13 @@ package database
 import (
 	"errors"
 	"fmt"
+	"os"
+
 	"github.com/go-sql-driver/mysql"
 	"github.com/jmoiron/sqlx"
 	"github.com/joho/godotenv"
 	"github.com/withoutsecondd/ToDo/internal/utils"
 	"github.com/withoutsecondd/ToDo/models"
-	"os"
-	"strings"
 )
 
 type MySqlDB struct {
@@ -59,17 +59,17 @@ func (db *MySqlDB) CreateUser(user *models.User) (*models.UserResponse, error) {
 		VALUES(?, ?, ?, ?, ?, ?)
 	`
 
-	_, err := db.DB.Queryx(query, user.Age, user.FirstName, user.LastName, user.City, user.Email, user.Password)
+	result, err := db.DB.Exec(query, user.Age, user.FirstName, user.LastName, user.City, user.Email, user.Password)
 	if err != nil {
-		var sqlErr *mysql.MySQLError
-		if errors.As(err, &sqlErr) && sqlErr.Number == 1062 {
-			return nil, utils.NewDBError("user with such email already exists")
-		} else {
-			return nil, err
-		}
+		return nil, err
 	}
 
-	createdUser, err := db.GetUserByEmail(strings.ToLower(user.Email))
+	userId, err := result.LastInsertId()
+	if err != nil {
+		return nil, err
+	}
+
+	createdUser, err := db.GetUserById(userId)
 	if err != nil {
 		return nil, err
 	}
@@ -184,6 +184,20 @@ func (db *MySqlDB) CreateTask(task *models.Task) (*models.Task, error) {
 	return createdTask, nil
 }
 
+func (db *MySqlDB) GetTagsByUserId(userId int64) ([]models.Tag, error) {
+	tags := make([]models.Tag, 0)
+
+	query := `
+		SELECT * FROM withoutsecondd.tag
+		WHERE user_id = ?
+	`
+	if err := db.DB.Select(&tags, query, userId); err != nil {
+		return nil, err
+	}
+
+	return tags, nil
+}
+
 func (db *MySqlDB) GetTagById(id int64) (*models.Tag, error) {
 	tag := &models.Tag{}
 
@@ -203,7 +217,7 @@ func (db *MySqlDB) GetTagsByTaskId(taskId int64) ([]models.Tag, error) {
 		INNER JOIN withoutsecondd.tag tag on task_tag.tag_id = tag.id
 		WHERE task_id = ?
 	`
-	if err := db.DB.Select(tags, query); err != nil {
+	if err := db.DB.Select(&tags, query, taskId); err != nil {
 		return nil, err
 	}
 
@@ -212,20 +226,20 @@ func (db *MySqlDB) GetTagsByTaskId(taskId int64) ([]models.Tag, error) {
 
 func (db *MySqlDB) CreateTag(tag *models.Tag) (*models.Tag, error) {
 	query := `
-		INSERT INTO withoutsecondd.tag(id, title, color, user_id)
-		VALUES(?, ?, ?, ?)
+		INSERT INTO withoutsecondd.tag(user_id, title, color)
+		VALUES(?, ?, ?)
 	`
-	_, err := db.DB.Queryx(query, tag.ID, tag.Title, tag.Color, tag.UserID)
+	result, err := db.DB.Exec(query, tag.UserID, tag.Title, tag.Color)
 	if err != nil {
-		var sqlErr *mysql.MySQLError
-		if errors.As(err, &sqlErr) && sqlErr.Number == 1062 {
-			return nil, utils.NewDBError("task with such id already exists")
-		} else {
-			return nil, err
-		}
+		return nil, err
 	}
 
-	createdTag, err := db.GetTagById(tag.ID)
+	createdTagId, err := result.LastInsertId()
+	if err != nil {
+		return nil, err
+	}
+
+	createdTag, err := db.GetTagById(createdTagId)
 	if err != nil {
 		return nil, err
 	}
