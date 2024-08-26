@@ -45,7 +45,7 @@ func (h *Handler) SetupRoutes(a *fiber.App) {
 	tags.Post("/", h.createTag)
 
 	emails := api.Group("/emails")
-	emails.Post("/verify", h.verifyEmail)
+	emails.Patch("/verify", h.verifyEmail)
 }
 
 // extractToken extracts a token from request's Authorization header
