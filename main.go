@@ -1,6 +1,7 @@
 package main
 
 import (
+	"crypto/rand"
 	"log"
 
 	"github.com/gofiber/fiber/v2"
@@ -32,14 +33,23 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
+	dialer := utils.NewDefaultDialer("marbiru15@gmail.com", "smtp.gmail.com", 587, "pwbt unpm cfgu laru")
 
-	mainEntityService := service.NewDefaultEntityService(db, v)
-	jwtAuthService, err := service.NewJwtAuthService(db)
+	defaultEntityService := service.NewDefaultEntityService(db, v)
+
+	jwtKey, err := generateJwtKey()
 	if err != nil {
 		log.Fatal(err)
 	}
+	jwtAuthService := service.NewJwtAuthService(db, jwtKey)
 
-	handler := todo_handler.NewHandler(mainEntityService, jwtAuthService)
+	jwtKey, err = generateJwtKey()
+	if err != nil {
+		log.Fatal(err)
+	}
+	defaultEmailService := service.NewDefaultEmailService(db, dialer, jwtKey)
+
+	handler := todo_handler.NewHandler(defaultEntityService, jwtAuthService, defaultEmailService)
 
 	handler.SetupRoutes(app)
 
@@ -48,4 +58,14 @@ func main() {
 		log.Fatal(err)
 		return
 	}
+}
+
+func generateJwtKey() ([]byte, error) {
+	jwtKey := make([]byte, 32)
+	if _, err := rand.Read(jwtKey); err != nil {
+		return nil, err
+	}
+
+	//return jwtKey, nil
+	return []byte{22, 112, 222, 0, 209, 146, 167, 212, 158, 39, 193, 131, 191, 67, 190, 52, 15, 170, 254, 43, 6, 5, 3, 175, 134, 227, 118, 82, 6, 243, 98, 111}, nil
 }

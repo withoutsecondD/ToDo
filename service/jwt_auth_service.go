@@ -1,7 +1,6 @@
 package service
 
 import (
-	"crypto/rand"
 	"errors"
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/withoutsecondd/ToDo/database"
@@ -14,22 +13,8 @@ type JwtAuthService struct {
 	jwtKey []byte
 }
 
-func generateJwtKey() ([]byte, error) {
-	jwtKey := make([]byte, 32)
-	if _, err := rand.Read(jwtKey); err != nil {
-		return nil, err
-	}
-
-	//return jwtKey, nil
-	return []byte{22, 112, 222, 0, 209, 146, 167, 212, 158, 39, 193, 131, 191, 67, 190, 52, 15, 170, 254, 43, 6, 5, 3, 175, 134, 227, 118, 82, 6, 243, 98, 111}, nil
-}
-
-func NewJwtAuthService(db database.Database) (*JwtAuthService, error) {
-	jwtKey, err := generateJwtKey()
-	if err != nil {
-		return nil, err
-	}
-	return &JwtAuthService{db: db, jwtKey: jwtKey}, nil
+func NewJwtAuthService(db database.Database, jK []byte) *JwtAuthService {
+	return &JwtAuthService{db: db, jwtKey: jK}
 }
 
 type Claims struct {
@@ -80,7 +65,7 @@ func (ja *JwtAuthService) Authenticate(l *LoginRequest) (string, error) {
 }
 
 func (ja *JwtAuthService) AuthorizeWithToken(tokenStr string) (int64, error) {
-	token, err := ja.ValidateJwtToken(tokenStr)
+	token, err := ja.validateJwtToken(tokenStr)
 	if err != nil {
 		return 0, err
 	}
@@ -93,7 +78,7 @@ func (ja *JwtAuthService) AuthorizeWithToken(tokenStr string) (int64, error) {
 	return int64(claims["id"].(float64)), nil
 }
 
-func (ja *JwtAuthService) ValidateJwtToken(tokenStr string) (*jwt.Token, error) {
+func (ja *JwtAuthService) validateJwtToken(tokenStr string) (*jwt.Token, error) {
 	token, err := jwt.Parse(tokenStr, func(token *jwt.Token) (interface{}, error) {
 		return ja.jwtKey, nil
 	})

@@ -10,6 +10,8 @@ type Database interface {
 	GetUserByEmail(email string) (*models.UserResponse, error)
 	GetUserPasswordByEmail(email string) ([]byte, error)
 	CreateUser(user *models.User) (*models.UserResponse, error)
+	UpdateUserInformation(userDto *models.UserUpdateInformationDto) (*models.UserResponse, error)
+	UpdateUserEmailStatus(userDto *models.UserEmailStatusDto) (*models.UserResponse, error)
 
 	GetListById(id int64) (*models.List, error)
 	GetListsByUserId(userId int64) ([]models.List, error)

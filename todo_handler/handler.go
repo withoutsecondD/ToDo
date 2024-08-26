@@ -14,10 +14,11 @@ import (
 type Handler struct {
 	entityService service.EntityService
 	authService   service.AuthService
+	emailService  service.EmailService
 }
 
-func NewHandler(es service.EntityService, as service.AuthService) *Handler {
-	return &Handler{entityService: es, authService: as}
+func NewHandler(entityS service.EntityService, authS service.AuthService, emailS service.EmailService) *Handler {
+	return &Handler{entityService: entityS, authService: authS, emailService: emailS}
 }
 
 func (h *Handler) SetupRoutes(a *fiber.App) {
@@ -42,6 +43,9 @@ func (h *Handler) SetupRoutes(a *fiber.App) {
 	tags.Get("/", h.getTags) // Returns tags of a task if task_id query variable provided, returns all tags of a user otherwise
 	tags.Get("/:tagId", h.getTagById)
 	tags.Post("/", h.createTag)
+
+	emails := api.Group("/emails")
+	emails.Post("/verify", h.verifyEmail)
 }
 
 // extractToken extracts a token from request's Authorization header
@@ -57,6 +61,23 @@ func (h *Handler) extractToken(c *fiber.Ctx) (string, error) {
 	}
 
 	return tokenSlice[1], nil
+}
+
+// login is used for authentication, service.LoginRequest is used
+// as credentials struct. If credentials are valid this handler will return
+// response with a token.
+func (h *Handler) login(c *fiber.Ctx) error {
+	var loginRequest service.LoginRequest
+	if err := c.BodyParser(&loginRequest); err != nil {
+		return utils.FormatErrorResponse(c, fiber.StatusBadRequest, errors.New("incorrect email or password"))
+	}
+
+	token, err := h.authService.Authenticate(&loginRequest)
+	if err != nil {
+		return utils.FormatErrorResponse(c, fiber.StatusUnauthorized, err)
+	}
+
+	return utils.FormatSuccessResponse(c, fiber.Map{"token": token})
 }
 
 // getCurrentUser returns a response with token bearer's information as a models.UserResponse
@@ -357,19 +378,23 @@ func (h *Handler) createTag(c *fiber.Ctx) error {
 	return utils.FormatSuccessResponse(c, createdTag)
 }
 
-// login is used for authentication, service.LoginRequest is used
-// as credentials struct. If credentials are valid this handler will return
-// response with a token.
-func (h *Handler) login(c *fiber.Ctx) error {
-	var loginRequest service.LoginRequest
-	if err := c.BodyParser(&loginRequest); err != nil {
-		return utils.FormatErrorResponse(c, fiber.StatusBadRequest, errors.New("incorrect email or password"))
-	}
-
-	token, err := h.authService.Authenticate(&loginRequest)
+func (h *Handler) verifyEmail(c *fiber.Ctx) error {
+	tokenStr, err := h.extractToken(c)
 	if err != nil {
 		return utils.FormatErrorResponse(c, fiber.StatusUnauthorized, err)
 	}
 
-	return utils.FormatSuccessResponse(c, fiber.Map{"token": token})
+	userId, err := h.authService.AuthorizeWithToken(tokenStr)
+	if err != nil {
+		return utils.FormatErrorResponse(c, fiber.StatusUnauthorized, err)
+	}
+
+	verificationToken := c.Queries()["t"]
+
+	err = h.emailService.VerifyEmail(userId, verificationToken)
+	if err != nil {
+		return utils.FormatErrorResponse(c, fiber.StatusUnauthorized, err)
+	}
+
+	return utils.FormatSuccessResponse(c, nil)
 }

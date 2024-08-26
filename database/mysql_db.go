@@ -23,7 +23,7 @@ func NewMySqlDB(db *sqlx.DB) *MySqlDB {
 func (db *MySqlDB) GetUserById(id int64) (*models.UserResponse, error) {
 	user := &models.UserResponse{}
 
-	query := "SELECT id, age, first_name, last_name, city, email FROM withoutsecondd.user WHERE id = ?"
+	query := "SELECT id, age, first_name, last_name, city, email, email_verified FROM withoutsecondd.user WHERE id = ?"
 	if err := db.DB.Get(user, query, id); err != nil {
 		return nil, err
 	}
@@ -34,7 +34,7 @@ func (db *MySqlDB) GetUserById(id int64) (*models.UserResponse, error) {
 func (db *MySqlDB) GetUserByEmail(email string) (*models.UserResponse, error) {
 	user := &models.UserResponse{}
 
-	query := "SELECT id, age, first_name, last_name, city, email FROM withoutsecondd.user WHERE email = ?"
+	query := "SELECT id, age, first_name, last_name, city, email, email_verified FROM withoutsecondd.user WHERE email = ?"
 	if err := db.DB.Get(user, query, email); err != nil {
 		return nil, err
 	}
@@ -75,6 +75,46 @@ func (db *MySqlDB) CreateUser(user *models.User) (*models.UserResponse, error) {
 	}
 
 	return createdUser, nil
+}
+
+func (db *MySqlDB) UpdateUserInformation(userDto *models.UserUpdateInformationDto) (*models.UserResponse, error) {
+	query := `
+		UPDATE withoutsecondd.user
+		SET age = ?, first_name = ?, last_name = ?, city = ?
+		WHERE id = ?
+	`
+
+	_, err := db.DB.Exec(query, userDto.Age, userDto.FirstName, userDto.LastName, userDto.City, userDto.ID)
+	if err != nil {
+		return nil, err
+	}
+
+	updatedUser, err := db.GetUserById(userDto.ID)
+	if err != nil {
+		return nil, err
+	}
+
+	return updatedUser, nil
+}
+
+func (db *MySqlDB) UpdateUserEmailStatus(userDto *models.UserEmailStatusDto) (*models.UserResponse, error) {
+	query := `
+		UPDATE withoutsecondd.user
+		SET email_verified = ?
+		WHERE id = ?
+	`
+
+	_, err := db.DB.Exec(query, userDto.EmailVerified, userDto.ID)
+	if err != nil {
+		return nil, err
+	}
+
+	updatedUser, err := db.GetUserById(userDto.ID)
+	if err != nil {
+		return nil, err
+	}
+
+	return updatedUser, nil
 }
 
 func (db *MySqlDB) GetListById(id int64) (*models.List, error) {
@@ -248,7 +288,7 @@ func (db *MySqlDB) CreateTag(tag *models.Tag) (*models.Tag, error) {
 }
 
 func InitMySqlConnection() (*sqlx.DB, error) {
-	if err := godotenv.Load(); err != nil {
+	if err := godotenv.Load("C:\\Users\\Diyar Z\\go\\src\\github.com\\withoutsecondd\\ToDo\\.env"); err != nil {
 		return nil, err
 	}
 
